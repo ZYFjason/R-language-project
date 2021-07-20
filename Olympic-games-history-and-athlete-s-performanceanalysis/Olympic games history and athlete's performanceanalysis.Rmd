@@ -1,0 +1,663 @@
+---
+title: "120 Years of Olympic Games"
+author: "Yafeng (Jason) Zhou, Lan (Claudia) Lou, Yushi Pu, Zeyu (Jeremy) Zhang"
+date: "12/3/2019"
+output:
+  pdf_document: default
+  beamer_presentation: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+#install.packages("ggplot2")
+#install.packages("tidyverse")
+#install.packages("gridExtra")
+#install.packages("plotly")
+library(plotly)
+library(gridExtra)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+library(ggmap)
+library(stringr)
+#five functions in tidyverse: 
+  #filter(), 
+  #select(), 
+  #mutate(),
+  #arrange(), and 
+  #group_by() / summarize()
+#combining these to do gender
+#ctl + shift +m for %>% 
+
+#reading the data
+athletes <- read.csv("D:/athlete_events.csv")
+regions <- read.csv("D:/noc_regions.csv")
+```
+
+## The Dataset
+
+Modern Olympic Games have a long history that can be tracaed back to more than a century ago. This dataset consists of information about Olympic Games athletes over the past 120 years, including...
+
+- Name
+- Age
+- Weight
+- Height
+- Country of origin
+- Sports
+
+And information on the Olympic Games they participated in, such as...
+
+- Year of the Olympic
+- City in which the Game is held
+- Season (Summer/Winter)
+
+Now, let us take you through the 120 years of Olympic history. 
+We will explore how the Olympic Games empitomizes **social trends** and uncover some **interesting topics**...
+
+****
+## How is Participation Rates Change Over Time?
+```{r}
+athletes %>%
+  #reflect Year to winter&summer olympic games
+  group_by(Year, Season) %>%
+  #get number of participants of each time of olympic games
+  summarise(NumberOfParticipants = n()) %>%
+  ggplot(aes(x = Year, y = NumberOfParticipants, group = Season)) +
+  geom_line(aes(color = Season)) +
+  geom_point(aes(color = Season)) +
+  annotate("text", x=c(1936,1956,1976,1980,2016),
+           y=c(3000,4500,8000,6000,14000),
+           label=c("Berlin 1936","Melbourne 1956","Montreal 1976","Moscow 1980","Rio 2016"),
+           size=2) +
+  labs(x = "Year", y = "Count", title = "Number of Participants in the Olympic Games")+ theme(plot.title = element_text(hjust = 0.5))
+```
+
+****
+## How is Participating Rates affected by Historical Events?
+### ggmap()
+
+### At the early stage of the Olympic Games, most of the participating countries came from Europe
+```{r}
+# Add regions to data and remove missing points
+data_regions <- athletes %>% 
+  left_join(regions,by="NOC") %>%
+  filter(!is.na(region))
+
+# Subset to Games of interest and count athletes from each country
+
+Stockholm <- data_regions %>% 
+  filter(Games == "1912 Summer") %>%
+  group_by(region) %>%
+  summarize(Stockholm = length(unique(ID)))
+
+Berlin <- data_regions %>% 
+  filter(Games == "1936 Summer") %>%
+  group_by(region) %>%
+  summarize(Berlin = length(unique(ID)))
+
+Tokyo <- data_regions %>% 
+  filter(Games == "1964 Summer") %>%
+  group_by(region) %>%
+  summarize(Tokyo = length(unique(ID)))
+
+Montreal <- data_regions %>% 
+  filter(Games == "1976 Summer") %>%
+  group_by(region) %>%
+  summarize(Montreal = length(unique(ID)))
+
+Moscow <- data_regions %>%
+  filter(Games == "1980 Summer") %>%
+  group_by(region) %>%
+  summarise(Moscow = length(unique(ID)))
+
+rio <- data_regions %>% 
+  filter(Games == "2016 Summer") %>%
+  group_by(region) %>%
+  summarize(Rio = length(unique(ID)))
+
+# Create data for mapping
+world <- map_data("world")
+worldmap <- tibble(region=unique(world$region))
+worlddat <- worldmap %>% 
+  left_join(Stockholm, by="region") %>%
+  left_join(Berlin, by="region") %>%
+  left_join(Tokyo, by="region") %>%
+  left_join(Montreal, by="region") %>%
+  left_join(Moscow, by="region") %>%
+  left_join(rio, by="region")
+worlddat$Berlin[is.na(worldmap$Berlin)] <- 0
+worlddat$Montreal[is.na(worldmap$Montreal)] <- 0
+worlddat$Montreal[is.na(worldmap$Moscow)] <- 0
+worlddat$Rio[is.na(worldmap$Rio)] <- 0
+worlddat$Stockholm[is.na(worldmap$Stockholm)] <- 0
+worlddat$Tokyo[is.na(worldmap$Tokyo)] <- 0
+world <- left_join(world, worlddat,by = "region")
+
+#1912
+ggplot(world, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = Stockholm)) +
+  labs(title = "Stockholm 1912",
+       x = NULL, y=NULL) +
+  theme(axis.ticks = element_line(),
+        axis.text = element_blank(),
+        panel.background = element_rect(fill = "cyan"),
+        plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_colourbar(title="Athletes")) +
+  scale_fill_gradient(low="white",high="red")
+```
+
+*****
+### Before the Second World War, the number of athletes from the United States increased \n while the USSR did not participate. 
+```{r}
+ggplot(world, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = Berlin)) +
+  labs(title = "Berlin 1936",
+       x = NULL, y=NULL) +
+  theme(axis.ticks = element_line(),
+        axis.text = element_blank(),
+        panel.background = element_rect(fill = "cyan"),
+        plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_colourbar(title="Athletes")) +
+  scale_fill_gradient(low="white",high="red")
+```
+
+******
+### In 1964, Tokyo became the first country from Asia to hold the Summer Olympic Games.
+```{r}
+ggplot(world, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = Tokyo)) +
+  labs(title = "Tokyo 1964",
+       x = NULL, y=NULL) +
+  theme(axis.ticks = element_line(),
+        axis.text = element_blank(),
+        panel.background = element_rect(fill = "cyan"),
+        plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_colourbar(title="Athletes")) +
+  scale_fill_gradient(low="white",high="red")
+
+```
+
+*******
+### In 1976, Canada held it's first Summer Olympic Games in Montreal.
+```{r}
+# Montreal 1976
+ggplot(world, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = Montreal)) +
+  labs(title = "Montreal 1976",
+       x = NULL, y = NULL) +
+  theme(axis.ticks = element_line(),
+        axis.text = element_blank(),
+        panel.background = element_rect(fill = "cyan"),
+        plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_colourbar(title="Athletes")) +
+  scale_fill_gradient2(low = "white", high = "red")
+```
+
+********
+### In the year of 1980, multiple countries boycotted the Moscow Olympic Games \n due to its invasion of Afghanistan for crude oil.
+```{r}
+# Moscow 1980
+ggplot(world, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = Moscow)) +
+  labs(title = "Moscow 1980",
+       x = NULL, y = NULL) +
+  theme(axis.ticks = element_line(),
+        axis.text = element_blank(),
+        panel.background = element_rect(fill = "cyan"),
+        plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_colourbar(title="Athletes")) +
+  scale_fill_gradient2(low = "white", high = "red")
+```
+
+****
+### Fast forward to the year of 2016, the number of participating countries reached its peak due to globalization and greater awareness for diversity and inclusion. 
+```{r}
+#Rio 2016
+ggplot(world, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = Rio)) +
+  labs(title = "Rio 2016",
+       x = NULL, y=NULL) +
+  theme(axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        panel.background = element_rect(fill = "cyan"),
+        plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_colourbar(title="Athletes")) +
+  scale_fill_gradient(low="white",high="red")
+```
+
+## Gender Equality
+### group_by()/summarize()
+
+#### Males still dominates the Olympic Games...
+```{r }
+#glimpse(athletes)
+df <- athletes %>%
+  group_by(Season, Sex) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = round(Count*100 / sum(Count))) 
+  
+df %>%   
+ggplot(aes(x=Season, y=Percentage, fill = Sex)) + geom_bar(stat='identity',position=position_dodge()) +
+        ggtitle("Proportions of Male and Female") +
+        geom_label(label=c("73%", "27%", "69%", "31%"), position = position_dodge(0.9)) +
+        theme_minimal() + theme(plot.title = element_text(hjust=0.5))
+```
+
+******
+#### ...while there are upward trends in female participation...
+
+```{r}
+attach(athletes)
+
+#gender trend
+gender.s <- athletes %>% 
+  filter(Season=="Summer") %>% 
+  group_by(Year, Sex) %>% 
+  summarise(
+    athlete.cnt = length(unique(Name))
+  )
+gender.w <- athletes %>% 
+  filter(Season=="Winter") %>% 
+  group_by(Year, Sex) %>% 
+  summarise(
+    athlete.cnt = length(unique(Name))
+  )
+
+gender.s.plot <- ggplot(gender.s, aes(x = Year, y = athlete.cnt, color = Sex)) +
+  geom_point(size=2) + geom_line() +
+  #scale_color_manual(values = c("navy", "sandybrown")) +
+  xlim(1896,2016) + ylim(0,7000) + 
+  labs(title = "Number of Male and Female Atheltes (Summer)") + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+gender.w.plot <- ggplot(gender.w, aes(x = Year, y = athlete.cnt, color = Sex)) +
+  geom_point(size=2) + geom_line() +
+  #scale_color_manual(values = c("navy", "sandybrown")) +
+  xlim(1896,2016) + ylim(0, 7000) +
+  labs(title = "Number of Male and Female Atheltes over Time (Winter)") + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(gender.s.plot, gender.w.plot)
+
+#trends of number of sports for each gender
+# sports.s.gen <- athletes %>% 
+#   filter(Season=="Summer") %>% 
+#   group_by(Year, Sex) %>% 
+#   summarise(
+#     sport.cnt = length(unique(Sport))
+#     )
+# 
+# sports.w.gen <- athletes %>% 
+#   filter(Season=="Winter") %>% 
+#   group_by(Year, Sex) %>% 
+#   summarise(
+#     sport.cnt = length(unique(Sport))
+#     )
+# 
+# sport.s.plot <- ggplot(sports.s.gen, aes(x = Year, y = sport.cnt, color = Sex)) + 
+#   geom_point(size=2) +
+#   #scale_color_manual(values = c("navy" ,"sandybrown")) +
+#   labs(title = "Number of Sports for Men and Women (Summer)") +
+#   ylab("Number of Athletes") + geom_line() +
+#   xlab("") + ylim(0,35) +
+#   theme(plot.title = element_text(hjust = 0.5))
+# 
+# sport.w.plot <- ggplot(sports.w.gen, aes(x = Year, y = sport.cnt, color = Sex)) + 
+#   geom_point(size=2) +
+#   #scale_color_manual(values = c("navy" ,"sandybrown")) +
+#   labs(title = "Number of Sports for Men and Women (Winter)") +
+#   ylab("Number of Athletes") + geom_line() + 
+#   xlab("Year") + xlim(1896,2016) + ylim(0,35) +
+#   theme(plot.title = element_text(hjust = 0.5))
+# 
+# 
+# grid.arrange(sport.s.plot, sport.w.plot)
+```
+
+*****
+#### ...and the male-to-female ratio is converging to 1
+```{r}
+#ratios start here
+groupMale <-  athletes %>%
+              filter(Sex == "M") %>%
+              group_by(Year, Season) %>%
+              summarise(Number_Of_Men = n())
+
+groupFemale <- athletes %>%
+              filter(Sex == "F") %>%
+              group_by(Year, Season) %>%
+              summarise(Number_Of_Women = n())
+
+group <- groupMale %>%
+          left_join(groupFemale) %>%
+          mutate(Sex_Ratio = Number_Of_Men/Number_Of_Women)
+group$Sex_Ratio[is.na(group$Sex_Ratio)] <- 175
+
+
+p1 <- group %>%
+    ggplot(aes(x = Year, y= Sex_Ratio, group = Season)) +
+    geom_line(aes(color = Season)) +
+    geom_point(aes(color = Season)) +
+    labs(x = "Year", y = "Sex Ratio", title = "Male-to-Female Ratio over the Years") +
+    theme_minimal() + theme(plot.title = element_text(hjust=0.5))
+
+p2 <- group %>%
+    filter(Year>1927) %>%
+    ggplot(aes(x = Year, y= Sex_Ratio, group = Season)) +
+    geom_line(aes(color = Season)) +
+    geom_point(aes(color = Season)) +
+    labs(x = "Year", y = "Sex Ratio", title = "Male-to-Female Ratio after 1927") +
+    theme_minimal() + theme(plot.title = element_text(hjust=0.5))
+
+cowplot::plot_grid(p1,p2, ncol = 1, 
+          align = 'h', axis = 'l')
+
+```
+
+*******
+## How do BMI distribution differ between Basketball Players and Weightlifting Athletes
+### Basketball players tend to be taller than average people \n while weightlifting athletes needs to be shorter to have a lower center of mass
+
+#### filter() & mutate() 
+```{r}
+BMI.comb <- athletes %>%
+  filter(Sport == "Basketball" | Sport == "Weightlifting" & Sex=="M") %>% 
+  filter(!is.na(Weight) & !is.na(Height)) %>%
+  mutate(BMI = Weight/((Height/100)^2))
+
+mean.bmi <- mean(BMI.comb$BMI)
+ggplot(BMI.comb, aes(x = BMI, fill=Sport)) + geom_histogram(bins = 30) + 
+  annotate("text", x = mean.bmi, y = 50, 
+           label = "Mean=25.23", size=4) +
+  geom_segment(mapping = aes(x=mean.bmi-0.1, xend=mean.bmi+0.1, y=0, yend=0), size = 4) +
+  xlim(10,50) + xlab("BMI") + ylab("Frequency")+
+  labs(title = "BMI of Basketball Players vs Weightlifting Players") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+detach(athletes)
+```
+
+******
+## Who won the most number of medals?
+```{r}
+#merge the csv file noc_region with an other file 
+athletesRegion <- athletes%>%left_join(regions, by =c("NOC"="region"))
+#cat("The total number of National Olympics Committees that have paricipated in the olympics are", length(unique(athletesRegion$region)))
+
+athletesRegion %>%
+  filter(Medal != "<NA>") %>%
+  group_by(NOC) %>%
+  summarise(Medal_Tally = length(Medal))%>%
+  arrange(desc(Medal_Tally)) %>%
+  ungroup() %>%
+  mutate(NOC = reorder(NOC,Medal_Tally)) %>%
+  top_n(10) %>%
+  ggplot(aes(x = NOC,y = Medal_Tally)) +
+    geom_bar(stat='identity',colour="white", fill = "tomato") +
+    geom_text(aes(x = NOC, y = .1, label = paste0("(",round(Medal_Tally,2),")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    theme(plot.title = element_text(size=10),
+          axis.title = element_text(size=10),
+          axis.text = element_text(size=10)) +
+    labs(x = 'Country', 
+         y = 'Number of Medals'
+         ) +
+    coord_flip() + 
+    theme_bw()
+```
+
+*****
+### Specifically, for the United States...
+```{r}
+Gold <-  athletesRegion %>%
+                filter(Medal == "Gold")%>%
+                group_by(Year, Season, NOC) %>%
+                summarise(Gold = n())
+
+Silver <-  athletesRegion %>%
+                filter(Medal == "Silver")%>%
+                group_by(Year, Season, NOC) %>%
+                summarise(Silver = n())
+
+Bronze <-  athletesRegion %>%
+                filter(Medal == "Bronze")%>%
+                group_by(Year, Season, NOC) %>%
+                summarise(Bronze = n())
+
+Total <-  athletesRegion %>%
+                filter(Medal != "<NA>")%>%
+                group_by(Year, Season, NOC) %>%
+                summarise(Total = n())
+
+Total <- Total %>%
+          left_join(Gold) 
+
+Total <- Total %>%
+          left_join(Silver)
+
+Total <- Total %>%
+          left_join(Bronze)
+Total$Gold[is.na(Total$Gold)] <- 0
+Total$Silver[is.na(Total$Silver)] <- 0
+Total$Bronze[is.na(Total$Bronze)] <- 0
+Total$Total[is.na(Total$Total)] <- 0
+
+count2 <- athletes %>%
+  group_by(Year) %>%
+  filter(NOC == "USA") %>%
+  summarise(NumberOfAthltes = n())
+
+NumberofMedalAthelUSA <- athletes %>%
+                filter(Medal != "<NA>")%>%
+                filter(NOC == "USA") %>%
+                group_by(Year) %>%
+                summarise(NumberOfMedals = n())
+#Aggregate the data frame count and Gold_winner together, get the season region Year three variables.
+TotaldataMedalUSA <- count2 %>% left_join(NumberofMedalAthelUSA, by = c("Year"))
+
+TotaldataMedalUSA$NumberOfMedals[is.na(NumberofMedalAthelUSA$NumberOfMedals)] <- 0
+
+
+count3 <- athletes %>%
+  group_by(Year) %>%
+  filter(NOC == "CHN") %>%
+  summarise(NumberOfAthltes = n())
+
+NumberofMedalAthelCHN <- athletes %>%
+                filter(Medal != "<NA>")%>%
+                filter(NOC == "CHN") %>%
+                group_by(Year) %>%
+                summarise(NumberOfMedals = n())
+#Aggregate the data frame count and Gold_winner together, get the season region Year three variables.
+TotaldataMedalCHN <- count3 %>% left_join(NumberofMedalAthelCHN, by = c("Year"))
+
+TotaldataMedalCHN$NumberOfMedals[is.na(NumberofMedalAthelCHN$NumberOfMedals)] <- 0
+
+
+MedalUSA<-TotaldataMedalUSA %>% 
+        ggplot(aes(x=NumberOfAthltes, y=NumberOfMedals,color = NumberOfAthltes)) +
+        geom_point(color="blue")  + geom_smooth(method = "lm", se=TRUE, color="black", aes(group=1)) +
+        theme_minimal() +
+        labs(x = "Number of Athletes in Team USA", y = "Number of Medals")
+
+
+grid.arrange(MedalUSA, ncol=1)
+```
+
+******
+## USA Outperforming the rest of the world
+```{r}
+TotalSu <- Total %>%
+          filter(NOC %in% c("USA","RUS","GER","CAN","CHN")) %>%
+          filter(Season == "Summer")
+
+plotmedalSummer <- TotalSu %>%
+  ggplot(aes(x = Year, y = Total, group = NOC)) +
+  geom_line(aes(color = NOC)) +
+  geom_point(aes(color = NOC)) +
+  annotate("text",x=c(1916,1942),y=c(550,550),
+           label=c("WWI","WWII"), size=4, color="orange") +
+  geom_segment(mapping=aes(x=1914,y=500,xend=1918,yend=500),color=631, size=1) +
+  geom_segment(mapping=aes(x=1939,y=500,xend=1945,yend=500),color=631, size=1) +
+  annotate("text", x=c(1980,2016),
+           y=c(450,450),
+           label=c("Moscow 1980","Rio 2016"),
+           size=3) +
+  theme_minimal()+
+  ggtitle("Total Number of Medals for Five Different Countries (Summer)") + 
+  ylab("Number of Medals") + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+TotalWin <- Total %>%
+            filter(NOC %in% c("USA","RUS","GER","CAN","CHN")) %>%
+            filter(Season == "Winter")
+
+plotmedalWinter <-TotalWin %>%
+  ggplot(aes(x = Year, y = Total, group = NOC)) +
+  geom_line(aes(color = NOC)) +
+  geom_point(aes(color = NOC)) +
+  annotate("text",x=c(1942),y=c(100),
+           label=c("WWII"), size=4, color="orange") +
+  geom_segment(mapping=aes(x=1939,y=80,xend=1945,yend=80),color=631, size=1) +
+  annotate("text", x=c(2010),
+           y=c(120),
+           label=c("Vancouver 2010"),
+           size=3) +
+  annotate("text", x=c(1976),
+           y=c(120),
+           label=c("Montreal 1976"),
+           size=3) +
+  theme_minimal()+  ylab("Number of Medals") + 
+  ggtitle("Total Number of Medals for Five Different Countries (Winter)") + theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(plotmedalSummer, plotmedalWinter, ncol=1)
+#Team Canada reaches the best result of them in Vancouver, 2010.
+```
+
+***
+## Create an interactive chart using ggplotly()
+```{r}
+sport <- athletes%>%filter(!is.na(Medal),Season=='Summer',Year==2008)%>%left_join(regions,by=c("NOC"="NOC"))
+sport$notes<-NULL
+sport <- sport%>%group_by(Sport,region)%>%summarize(total=n())
+
+slist =c('Athletics','Badminton','Baseball','Basketball','Boxing','Football','Gymnastics','Hockey','Judo',' Shooting','Swimming ','Table Tennis','Tennis','Weightlifting','Volleyball')
+
+sport <- filter(sport,Sport%in%slist,total>=1)
+sport$region <- as.factor(sport$region)
+
+p <-ggplot(sport,aes(Sport,total,color=region,fill=region)) +
+  geom_bar(position = "stack",  width =.75,stat="identity") +
+  scale_x_discrete() +
+  xlab("Sports")+ylab("Medals")+
+  theme(legend.position = "none",
+  axis.text = element_text(size = 6,face="bold"),
+  plot.title = element_text(size=16,face = "bold")) + 
+  ggtitle("Major sports  in 2008 games") + theme(plot.title = element_text(hjust = 0.5)) 
+
+ggplotly(p)
+
+```
+
+****
+## Does Home Advantage Exist?
+```{r}
+#home advantage
+#Number of USA gold medals over the time in Summer Season
+attach(athletes)
+plot <- athletes %>% group_by(Year, Team, Medal) %>% 
+  filter(Season=='Summer', !is.na(Medal), Medal=="Gold", !grepl('-',Team), Team=='United States') %>%summarize(Count=n()) %>% arrange(Year) %>% group_by(Year) %>% top_n(10,Count)
+ggplot(plot, aes(x=Year, y=Count, group=Medal)) +
+geom_line(aes(colour=Team)) +
+geom_point(aes(colour=Team))+
+scale_x_continuous(breaks=plot$Year)+
+annotate("text", x=c(1904,1932,1984,1996),
+           y=c(75,75,175,165),
+           label=c("st.Louis 1904","Los Angeles 1932","Los Angeles 1984","Atlanta 1996"),
+           size=3)+
+  theme(legend.position="none", legend.text=element_text(size=0),axis.text.x=element_text(size=8, angle=90,vjust=0,hjust=1))+
+  labs(title="Number of Golds won by USA (Summer)", x="Years", y="Num. of Medals") + 
+  theme(plot.title = element_text(hjust = 0.5)) + ylab("Number of Gold Medals")
+```
+
+***
+## Does Home Advantage Exist?
+```{r}
+attach(athletes)
+plot <- athletes %>% group_by(Year, Team, Medal) %>% 
+  filter(Season=='Winter', !is.na(Medal), Medal=="Gold", !grepl('-',Team), Team=='United States') %>%summarize(Count=n()) %>% arrange(Year) %>% group_by(Year) %>% top_n(10,Count)
+ggplot(plot, aes(x=Year, y=Count, group=Medal)) +
+geom_line(aes(colour=Team)) +
+geom_point(aes(colour=Team))+
+scale_x_continuous(breaks=plot$Year)+
+annotate("text", x=c(1932,1960,1980,2002),
+           y=c(5,20,25,10),
+           label=c("Lake Placid 1932","Squaw Valley 1960","Lake Placid 1980","Salt Lake City 2002"),
+           size=3)+
+theme(legend.position="none", legend.text=element_text(size=0),axis.text.x=element_text(size=8, angle=90,vjust=0,hjust=0.5))+
+labs(title="Number of USA gold medals over the time in Winter Season", x="Years", y="Num. of Medals")
+
+```
+
+***
+## Does Home Advantage Exist?
+```{r}
+attach(athletes)
+plot <- athletes %>% group_by(Year, Team, Medal) %>% 
+  filter(Season=='Summer', !is.na(Medal), Medal=="Gold", !grepl('-',Team), Team=='Great Britain') %>%summarize(Count=n()) %>% arrange(Year) %>% group_by(Year) %>% top_n(10,Count)
+ggplot(plot, aes(x=Year, y=Count, group=Medal)) +
+geom_line(aes(colour=Team)) +
+geom_point(aes(colour=Team))+
+scale_x_continuous(breaks=plot$Year)+
+annotate("text", x=c(1908,1948,2012),
+           y=c(75,10,50),
+           label=c("London 1908","London 1948","London 2012"),
+           size=3)+
+  theme(legend.position="none", legend.text=element_text(size=0),axis.text.x=element_text(size=8, angle=90,vjust=0,hjust=1),
+        plot.title = element_text(hjust=0.5))+
+  labs(title="Number of Golds won by Great Britain (Summer)", x="Years", y="Number of Gold Medals")
+  
+```
+
+***
+## Does Home Advantage Exist?
+```{r}
+counts <- athletes %>% filter(Team== "United States",Season=="Summer") %>%
+  group_by(Year, Season) %>%
+  summarize(
+    Athletes = length(unique(ID)),
+    Nations = length(unique(NOC)),
+    Events = length(unique(Event))
+  )
+
+p1 <- ggplot(counts, aes(x=Year, y=Athletes, group=Season)) +
+  geom_point(size=2) +
+  geom_line() +
+  scale_color_manual(values=c("darkorange","darkblue")) +
+  xlab("")+
+  annotate("text", x=c(1904,1932,1984,1996),
+           y=c(400,400,500,600),
+           label=c("st.Louis 1904","Los Angeles 1932","Los Angeles 1984","Atlanta 1996"),
+           size=3)+
+  labs(title="USA- Participation over the time in Summer Season") + theme(plot.title = element_text(hjust=0.5))
+  
+  
+grid.arrange(p1, ncol=1)
+```
+
+- Higher degree of participation
+- travel fatigue 
+
+***** 
+## Conclusion 
+
+- Globalization and greater diversity welcomes more countries and more women to participate in the Olympic Games. 
+- Want to win the most number of medals? Wait till your home country holds the Olympic Games! 
