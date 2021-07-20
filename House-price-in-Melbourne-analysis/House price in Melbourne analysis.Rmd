@@ -1,0 +1,388 @@
+---
+title: "House price in Melbourne analysis"
+author: "Yafeng Zhou"
+date: "12/4/2019"
+output:  html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+****
+**Introduction**
+
+This report is an analysis of the overall situation of house prices in Melbounrne. In this analysis, i will analyze the effects of diffrent variables on housing prrices, such as bedrooms number, cap praking spaces for each property. In order to get the factors that influence the housing price, this article will focus on the correlation between diffrent variables.
+
+The dataset this article use is from the kaggle. The dataset introduces a variety of important information about Melbourne's real estate market up to June 2018.
+
+****
+**Some important varibles in the dataset:**
+
+-Suburb: Suburb
+
+-Address: Address
+
+-Rooms: Number of rooms
+
+-Bedroom2 : Scraped # of Bedrooms
+
+-Bathroom: Number of Bathrooms
+
+-Car: Number of carspots
+
+-Landsize: Land Size in Metres
+
+-BuildingArea: Building Size in Metres
+
+-YearBuilt: Year the house was built
+
+-Lattitude: Self explanitory
+
+-Longtitude: Self explanitory
+
+
+****
+Firstly, we read the csv file that we need.
+
+```{r}
+houseM <- read.csv("D:/Melbourne_housing_FULL.csv")
+```
+
+**The package we mainly use in this data analysis**
+
+-dplyr
+
+-tidyverse
+
+-ggplot2
+
+-corrplot
+
+-gridExtra
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(corrplot)
+```
+
+
+****
+**gg-freqpoly**
+
+Let we overview the house price distribution in Melbourne.
+
+```{r}
+priceDist <- houseM[c("Suburb","Price")] %>% filter(Price != "")
+ggplot(priceDist, aes(Price))+
+  geom_histogram(binwidth = 80000,aes(y = ..density..), col= "red")+
+  geom_density(alpha = 0.2)+
+  scale_x_continuous(breaks = c(seq(1000000,10000000,1000000)),
+  labels = c(paste("$", 1:10, "m", sep = "")))+
+  ggtitle("Overall House Price Distribution in Melbourne")
+
+```
+
+From the graph, we could see that more than half houses in Melbourne is less than $1millon. But the distribution of house prices in Melbourne is very wide , from $0.25m to more than $15m. 
+
+****
+Let we see the Top 15 areas which have the most number of houses. Then, we will compare it with the Top 15 areas which the price are the most expensive.
+
+```{r}
+#Using the decreasing order
+# Check missing values in Regionname
+houseM <- houseM %>% filter(!is.na(houseM$Regionname))
+top15NumOfhouses <- houseM %>% group_by(Suburb) %>% summarise(Number = n()) %>% arrange(desc(Number)) %>%
+  head(15) 
+AveragePrice <- houseM[c("Suburb","Price")] %>% filter(Price != "")
+AveragePrice1 <- AveragePrice %>% group_by(Suburb) %>%
+  summarise(Average = sum(Price)/n()) %>%
+  arrange(desc(Average)) %>% head(15)
+
+p1Top <- ggplot(top15NumOfhouses, aes(reorder(Suburb, Number), Number, fill = Suburb))+
+  geom_bar(stat = "identity")+
+  labs(x = "Suburb", y = "Number of Houses",
+       title = "Top15 Suburbs by the Number of Houses")+
+  coord_flip()
+p2Top <- ggplot(AveragePrice1, aes(reorder(Suburb, Average), Average, fill = Suburb))+
+  geom_bar(stat = "identity")+
+  theme(legend.position = "none")+
+  labs(x = "Suburb", y = "Average Price of House",
+       title = "Top15 Suburbs by average price of each")+
+  coord_flip()
+
+p1Top
+p2Top
+```
+
+From the graph, we clearly see that the area "Reservoir" has the most number of houses, following by th eare "Bentleigh East". The least number of houses area is the "Coburg" among the Suburbs above. The graph "Top 15 Suburbs by average price" follow. From decreasing order, the Centerbury has the largest mean value, which is more than $2.25m. The Suburb with the lowest mean price among the top 15 is "Toorak", attaching the mean more than $0.5m. 
+
+****
+After knowing the overall distribution and ranking of top 15 in Melbourne, let we start to analysis the correlation in different factors that affect the housing prices in Merbourne.
+
+```{r}
+#Because in the dataset the factor "Distance" is not a numerical value, so we need to tranform it first.
+houseM$Distance = as.numeric(houseM$Distance )
+houseMCorr <- houseM[, sapply(houseM,is.numeric)]
+houseMCorr <- houseMCorr[complete.cases(houseMCorr), ]
+correlation_matrix <- cor(houseMCorr, method = "spearman")
+corrplot(correlation_matrix, method = "color")
+```
+
+****
+From the correlation matrix above, we would clearly see that only the factor, "YearBuilt" and "Lattitude" have a negative relationship between house price. Because Melbourne is located at the southern hemishere, so the houses with the large lattitude may sell at a lower price. Therefore, we may defer that the southern part of Melbourne might be relatively lower. It is worth noting that floor area has the most positive correlation with the house prices, followed by the factors "Number of rooms" and "Number of  bedrooms". It is also could be seen that the distance to downtown is also has a slighly correlation with house price. For this part, i consider that the Number of car spots of the houses might be a major factor that effect house price. 
+
+```{r}
+houseMel <- houseM %>% filter(!is.na(Price)) %>% filter(!is.na(BuildingArea)) %>% filter(!is.na(Car)) %>% filter(!is.na(Distance)) %>% filter(!is.na(Bedroom2)) %>% filter(!is.na(YearBuilt)) %>% filter(!is.na(Landsize))
+p1 <- houseMel %>% 
+  ggplot(aes(Car,Price )) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', colour = 'red') + 
+  labs(x = 'Number of car spots', y = 'price', subtitle = paste('Corrlation between the Number of car spots with the house price', round(cor(houseMel$Car, houseMel$Price), 2)))
+
+
+p2 <- houseMel %>% 
+  ggplot(aes(Distance,Price )) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', colour = 'red') + 
+  labs(x = 'Distance to downtown', y = 'price', subtitle = paste('Corrlation between the distance to downtown with the house price', round(cor(houseMel$Distance, houseMel$Price), 2)))
+
+p3 <- houseMel %>%
+  ggplot(aes(Bedroom2,Price )) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', colour = 'red') + 
+  labs(x = 'Bedroom number', y = 'price', subtitle = paste('Corrlation between the bedroom numbers with the house price', round(cor(houseMel$Bedroom2, houseMel$Price), 2)))
+
+p4 <- houseMel %>% 
+ggplot(aes(x=BuildingArea,y=Price))+
+  geom_point()+
+  scale_x_continuous(limits=c(0,1000)) +
+  stat_smooth(aes(x=BuildingArea,y=Price),method="lm", color="red")+
+  labs(x = 'Building area', y = 'price', subtitle = paste('Corrlation between the Building area with the house price'))
+  
+p5 <- houseMel %>%
+  ggplot(aes(YearBuilt, Price )) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', colour = 'red') + 
+  scale_x_continuous(limits=c(1900,2020)) +
+  labs(x = 'Year built', y = 'price', subtitle = paste('Corrlation between the Year Built with the house price', round(cor(houseMel$YearBuilt, houseMel$Price), 2)))
+
+p6 <- houseMel %>% 
+  ggplot(aes(Landsize,Price )) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', colour = 'red') + 
+  scale_x_continuous(limits=c(0,1500))+
+  labs(x = 'Landsize', y = 'price', subtitle = paste('Corrlation between the Landsize with the house price', round(cor(houseMel$Landsize, houseMel$Price), 2)))
+
+  
+grid.arrange(p1,p2,p3,p4,p5,p6, ncol=3)
+
+```
+
+From the six correlation plot that generated above, we could get more detailed information that different factors between the different factors with the house price. The individual graph of each factors are clearer reponse the correlation than the correlation matrix. We could clear see that there are some very obvious positive relations among housing prices and Building are a and also the landsize. It makes sense because in the case of approxiamtely same unit price, larger building area means more expensive.And with the larger land size the building area may be bigger. Although we could see some outlier points which are far fromthe cluster of data.
+
+We could also observe from the graph:
+
+-1.The bedroom numbers have a positive relationship with the house price.
+
+-2.Number of carspots gets a slight positive correlation with the house price.
+
+-3.The distance to downtown does not have a clear relationship with house price.
+
+****
+Home variables (carspots, rooms, bedrooms) with price analysis.
+
+After the correlation analysis above, we need to get a more specific relationship between different of house's situations. 
+
+- rooms
+
+- bedrooms
+
+- Car spot
+
+****
+How does the number of car spots influence the price of house?
+
+```{r}
+Carspot = houseMel %>% filter(!is.na(Price)) %>%
+  group_by(Car) %>% 
+  summarise(AvgPriceCarspot = round(median(Price),0)) %>%
+  arrange(desc(AvgPriceCarspot))
+p81 <- ggplot(Carspot, aes(x = Car,y = AvgPriceCarspot)) +
+  scale_x_continuous(breaks=c(0,2,4,6,8,10,12)) +
+  geom_bar(stat='identity', fill = "grey") +
+  labs(x = 'Number of carspots', y = 'Price', title = 'Price and  carspots') +
+  theme_classic()
+p81
+```
+
+*By the bar graph above we could conclude that*
+
+-1.The houses with 7,9 carspots get the highest average price.
+
+-2.The remaining number of garages does not have much effect on housing price.
+
+****
+Does number of rooms affect house price?
+
+```{r}
+#compare the diffrent number of room to the price
+roomAn = houseMel %>% filter(!is.na(Price)) %>%
+  group_by(Rooms) %>% 
+  summarise(AvgPricePerRoom = round(median(Price),0)) %>%
+  arrange(desc(AvgPricePerRoom))
+
+p9 <- ggplot(roomAn, aes(x = Rooms,y = AvgPricePerRoom)) +
+  scale_x_continuous(breaks=c(0,2,4,6,8,10,12)) +
+  geom_bar(stat='identity', fill = "Blue") +
+  labs(x = 'Number of rooms', y = 'Price', title = 'Price and  Rooms') +
+  theme_classic()
+p9
+```
+
+From the bargraph above, we could conclude that:
+
+-1.In houses with 1-7 roomes, prices tend to increase with the number of rooms.
+
+-2.The average price of a house with 7-10 rooms fell at a significant interval.
+
+-3.The number of rooms in houses do affect house price.
+
+****
+What about number of bedrooms?
+
+```{r}
+beddata = houseMel %>% filter(!is.na(Price)) %>%
+  group_by(Bedroom2) %>% 
+  summarise(AvgPriceBedroom = round(median(Price),0)) %>%
+  arrange(desc(AvgPriceBedroom))
+p10 <- ggplot(beddata, aes(x =Bedroom2,y = AvgPriceBedroom)) +
+  scale_x_continuous(breaks=c(0,2,4,6,8,10,12,14,16,18,20)) +
+  geom_bar(stat='identity', fill = "cyan") +
+  labs(x = 'Number of bedrooms', y = 'Price', title = 'Price and  bedrooms') +
+  theme_classic()
+p10
+```
+
+According to the bar graph above we could figure out that:
+
+-1.It has a slightly decilining between the house with 1 bedrooms and house with 2 bedrooms.
+
+-2.The overrall trend of the house price are increasing with the number of bed rooms 
+
+-3.The number of bedrooms are positive influencing the house price.
+
+
+****
+**Correlation between Rooms and Bedroom**
+**Correlation between Rooms and car spots**
+```{r}
+cat("The correlation between the rooms and bedrooms: ",cor(as.numeric(houseMel$Rooms), as.numeric((houseMel$Bedroom2)), use="pairwise.complete.obs"),"\n", "The correlation between the rooms and the car parking spots:",cor(as.numeric(houseMel$Rooms), as.numeric(houseMel$Car), use="pairwise.complete.obs"))
+
+
+```
+
+From the correlation between the number of rooms and the number of bedrooms is nearly 1, we may defer that  more rooms in a house leads to more bedrooms in the house, which leads to a higher price for the house itself.
+
+On the other hand, the relationship between the number of parking spaces and the number of rooms is not as obvious as the former. This may be why parking spaces do not significantly affect housing prices.
+
+
+****
+*Is location really not the determinat of housing prices?*
+
+From the analysis above, we can not get a clearly conclusion between the distance to downtown and house price
+
+We may assume that the houses' landsize and building area may be affected by their distance to downtown.
+
+To show more the relationship clearly, we need to take the log value of the 2 variables
+```{r}
+houseMel2 <- houseMel
+redoBuildingarea = median(as.numeric(houseMel2$BuildingArea), na.rm = TRUE)
+redolandsize = median(as.numeric(houseMel2$Landsize), na.rm = TRUE)
+houseMel2$BuildingArea[is.na(houseMel2$BuildingArea)] = redoBuildingarea
+houseMel2$Landsize[is.na(houseMel2$Landsize)] = redolandsize
+houseMel2$Distance = as.numeric(houseMel2$Distance)
+# Plot of distance with price
+pp1 <- ggplot(houseMel2, aes(x=Distance, y=log(BuildingArea))) + 
+  geom_point(aes(colour=as.numeric(as.character(Price))), alpha=1) +
+  scale_colour_gradient(low = "blue", high = "orange") +
+  theme_bw() + xlab("Distance from downtown") + 
+  ylab("log(building area)") + labs(color = "Price")
+pp2 <- ggplot(houseMel2, aes(x=Distance, y=log(Landsize))) + 
+  geom_point(aes(colour=as.numeric(as.character(Price))), alpha=1) +
+  scale_colour_gradient(low = "blue", high = "orange") +
+  theme_bw() + xlab("Distance from downtown") + 
+  ylab("log(land size)") + labs(color = "Price")
+
+pp1 
+pp2
+```
+
+*The graph show that:*
+
+-1.In general more floor space means higher prices. However the larger of the landsize does not mean the higher price of the house
+
+-2.Diffrent in the distance of houses from downtown have similar price distribution.
+
+-3.It is worth noting that houses of the same building area and landsize seem to cost more than those closer to the city center, especially for the house more than 150km to downtown.
+
+****
+Besides the building area, we notice that the other 2 important factors are the "Landsize" and building types.
+
+To determine how landsize a affect the building area in different building type, we will plot the correlation between different
+building types and show the gradient of the price under this situation.
+```{r}
+housemel3 <- houseMel %>% filter(Type=="h")
+p11 <- housemel3 %>%
+  ggplot(aes(Landsize,log(BuildingArea) )) + 
+  geom_point(aes(colour=Price), alpha=1.0) +scale_colour_gradient(low = "blue", high = "orange") +
+  geom_smooth(method = 'lm', colour = 'red') + 
+  labs(x = 'landsize', y = 'BuildingArea', subtitle = paste('Corrlation between the landsize with the building area', round(cor(housemel3$Landsize, housemel3$BuildingArea), 2)))
+p11
+housemel4 <- houseMel %>% filter(Type=="t")
+p12 <- housemel4 %>%
+  ggplot(aes(Landsize,log(BuildingArea) )) + 
+  geom_point(aes(colour=Price), alpha=1.0) +scale_colour_gradient(low = "blue", high = "orange") +
+  geom_smooth(method = 'lm', colour = 'red') + 
+  labs(x = 'landsize', y = 'BuildingArea', subtitle = paste('Corrlation between the landsize with the building area', round(cor(housemel4$Landsize, housemel4$BuildingArea), 2)))
+p12
+housemel5 <- houseMel %>% filter(Type=="u")
+p11 <- housemel5 %>%
+  ggplot(aes(Landsize,log(BuildingArea) )) + 
+  geom_point(aes(colour=Price), alpha=1.0) +scale_colour_gradient(low = "blue", high = "orange") +
+  geom_smooth(method = 'lm', colour = 'red') + 
+  labs(x = 'landsize', y = 'BuildingArea', subtitle = paste('Corrlation between the landsize with the building area', round(cor(housemel5$Landsize, housemel5$BuildingArea), 2)))
+p11
+```
+
+*From 3 facet graph above, we could conclude that:*
+
+1.In the type of "house", we could once again proce that more floor space leads to higher house prices.
+
+2.The correlation between the landsize and building area seems like not clearly.
+
+3.The "unit" type seems have only small variance in the building area, whatever the landsize. The possible reason is that the structure of the apartment is fixed and the difference in the units area is  not large.
+
+****
+**Conclusion**
+
+In the Melbourne housing market:
+
+1. Building area is the main factor affecting building prices, especially in "house" type.
+
+2. More rooms that a building has, the more expensive it will be.
+
+3. The number of parking spaces hardly affects the price of a building.
+
+4. Shorter distance to downtown does not mean higher house price, some regions which are far away from dowmtown also with reletive high price. 
+
+*What need to be improved in this analysis?*
+
+Not get a clear relation between the distance to downtown and the housing prices.
+
+Since the distance to the city center is not the only factor that affects housing prices, we need more infomation, such as whether the building in a convenient area. Is there a good school nearby? These are important factors in determine housing prices.
+
+After all above information being collected, a more reliable conclusion how the location affects house price, can be drawn.
